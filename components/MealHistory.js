@@ -15,9 +15,13 @@ export default function MealHistory() {
 
   async function fetchMeals() {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('meals')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -32,10 +36,14 @@ export default function MealHistory() {
 
   async function deleteMeal(id) {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { error } = await supabase
         .from('meals')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id); // Ensure users can only delete their own meals
 
       if (error) throw error;
       

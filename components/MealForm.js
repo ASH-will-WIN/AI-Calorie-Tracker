@@ -26,9 +26,21 @@ export default function MealForm() {
 
       const { calories, protein, carbs, fat } = await res.json();
 
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('User not authenticated');
+
       const { error: supabaseError } = await supabase
         .from("meals")
-        .insert([{ food_description: text, calories, protein, carbs, fat }]);
+        .insert([{ 
+          food_description: text, 
+          calories, 
+          protein, 
+          carbs, 
+          fat,
+          user_id: user.id 
+        }]);
 
       if (supabaseError) throw supabaseError;
 

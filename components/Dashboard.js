@@ -24,10 +24,14 @@ export default function Dashboard() {
   }, []);
 
   async function fetchTodayStats() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase
       .from('meals')
       .select('calories, protein, carbs, fat')
+      .eq('user_id', user.id)
       .gte('created_at', today);
 
     if (error) {
@@ -46,10 +50,14 @@ export default function Dashboard() {
   }
 
   async function fetchWeeklyData() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const startDate = startOfWeek(new Date()).toISOString();
     const { data, error } = await supabase
       .from('meals')
       .select('calories, created_at')
+      .eq('user_id', user.id)
       .gte('created_at', startDate)
       .order('created_at');
 
