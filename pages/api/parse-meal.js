@@ -24,6 +24,42 @@ export default async function handler(req, res) {
   - "slice of bread": {"calories": 80, "protein": 3, "carbs": 15, "fat": 1}
   - "chicken breast": {"calories": 165, "protein": 31, "carbs": 0, "fat": 3.6}`;
 
+  // Check if OpenRouter API key is configured
+  if (!process.env.OPENROUTER_KEY) {
+    console.warn('OpenRouter API key not configured. Using mock response for demo.');
+    // Return mock data for demo purposes
+    const mockResponses = {
+      '2 eggs': { calories: 140, protein: 12, carbs: 0, fat: 10 },
+      'toast': { calories: 80, protein: 3, carbs: 15, fat: 1 },
+      'chicken': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+      'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+      'apple': { calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+      'salmon': { calories: 208, protein: 25, carbs: 0, fat: 12 },
+      'pasta': { calories: 131, protein: 5, carbs: 25, fat: 1.1 },
+      'bread': { calories: 80, protein: 3, carbs: 15, fat: 1 },
+      'milk': { calories: 103, protein: 8, carbs: 12, fat: 2.4 },
+      'banana': { calories: 105, protein: 1.3, carbs: 27, fat: 0.4 }
+    };
+
+    // Find the best match for the input text
+    let bestMatch = null;
+    let bestScore = 0;
+    
+    Object.keys(mockResponses).forEach(key => {
+      if (text.toLowerCase().includes(key.toLowerCase())) {
+        const score = key.length;
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = mockResponses[key];
+        }
+      }
+    });
+
+    // Return mock response or default
+    const response = bestMatch || { calories: 200, protein: 10, carbs: 20, fat: 8 };
+    return res.status(200).json(response);
+  }
+
   try {
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
