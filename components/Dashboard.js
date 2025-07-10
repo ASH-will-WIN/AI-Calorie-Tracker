@@ -350,7 +350,7 @@ export default function Dashboard({ onTabChange }) {
           type: 'info',
           title: 'Juice Calories',
           message: `Fruit juice contains ${drink.calories} calories.`,
-          suggestion: 'Eat whole fruit instead - you'll get fiber and fewer calories. Save 50-100 calories per serving!'
+          suggestion: 'Eat whole fruit instead - you will get fiber and fewer calories. Save 50-100 calories per serving!'
         });
       }
     });
