@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { supabase } = await import('../../../utils/supabaseClient');
+  const { supabase } = await import('../../utils/supabaseClient');
 
   try {
     // Get user from auth header or session
