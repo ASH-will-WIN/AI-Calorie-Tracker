@@ -252,30 +252,230 @@ export default function Dashboard({ onTabChange }) {
       });
     }
 
-    // Detect and suggest easy calorie cuts based on meal descriptions
-    const calorieCutSuggestions = [
-      { keyword: 'sugar', suggestion: 'Try reducing added sugar in your meals' },
-      { keyword: 'sweetened', suggestion: 'Consider using natural sweeteners or reducing added sugar' },
-      { keyword: 'creamy', suggestion: 'Try using low-calorie alternatives or reducing cream' },
-      { keyword: 'fried', suggestion: 'Try using healthier cooking methods like baking or grilling' },
-    ];
-
-    data.forEach(meal => {
-      const description = meal.description.toLowerCase();
-      calorieCutSuggestions.forEach(suggestion => {
-        if (description.includes(suggestion.keyword)) {
-          insights.push({
-            type: 'info',
-            title: `Possible Calorie Cut: ${suggestion.keyword}`,
-            message: suggestion.suggestion,
-            suggestion: ''
-          });
-        }
-      });
-    });
+    // Advanced meal analysis for calorie reduction opportunities
+    const mealAnalysis = analyzeMealsForCalorieCuts(data);
+    insights.push(...mealAnalysis);
 
     setAiInsights(insights);
   }
+
+  const analyzeMealsForCalorieCuts = (meals) => {
+    const insights = [];
+    const mealCategories = {
+      drinks: [],
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+      snacks: []
+    };
+
+    // Categorize meals by time and type
+    meals.forEach(meal => {
+      if (!meal.food_description) return;
+      
+      const hour = new Date(meal.created_at).getHours();
+      const description = meal.food_description.toLowerCase();
+      
+      if (hour < 11) mealCategories.breakfast.push(meal);
+      else if (hour < 16) mealCategories.lunch.push(meal);
+      else if (hour < 21) mealCategories.dinner.push(meal);
+      else mealCategories.snacks.push(meal);
+
+      // Identify drinks
+      if (description.includes('coffee') || description.includes('tea') || 
+          description.includes('juice') || description.includes('soda') ||
+          description.includes('milk') || description.includes('smoothie')) {
+        mealCategories.drinks.push(meal);
+      }
+    });
+
+    // Analyze drinks for easy calorie cuts
+    if (mealCategories.drinks.length > 0) {
+      const drinkInsights = analyzeDrinks(mealCategories.drinks);
+      insights.push(...drinkInsights);
+    }
+
+    // Analyze breakfast patterns
+    if (mealCategories.breakfast.length > 0) {
+      const breakfastInsights = analyzeBreakfast(mealCategories.breakfast);
+      insights.push(...breakfastInsights);
+    }
+
+    // Analyze lunch/dinner patterns
+    const mainMeals = [...mealCategories.lunch, ...mealCategories.dinner];
+    if (mainMeals.length > 0) {
+      const mealInsights = analyzeMainMeals(mainMeals);
+      insights.push(...mealInsights);
+    }
+
+    // Analyze snacks
+    if (mealCategories.snacks.length > 0) {
+      const snackInsights = analyzeSnacks(mealCategories.snacks);
+      insights.push(...snackInsights);
+    }
+
+    return insights;
+  };
+
+  const analyzeDrinks = (drinks) => {
+    const insights = [];
+    const totalDrinkCalories = drinks.reduce((sum, drink) => sum + drink.calories, 0);
+    const avgDrinkCalories = totalDrinkCalories / drinks.length;
+
+    if (avgDrinkCalories > 100) {
+      const highCalorieDrinks = drinks.filter(drink => drink.calories > 100);
+      const descriptions = highCalorieDrinks.map(drink => drink.food_description).join(', ');
+      
+      insights.push({
+        type: 'info',
+        title: 'High-Calorie Drinks Detected',
+        message: `Your drinks average ${Math.round(avgDrinkCalories)} calories each.`,
+        suggestion: `Try switching to water, black coffee, or unsweetened tea. This could save you ${Math.round(avgDrinkCalories - 20)} calories per drink!`
+      });
+    }
+
+    // Check for specific drink types
+    drinks.forEach(drink => {
+      const desc = drink.food_description.toLowerCase();
+      if (desc.includes('soda') || desc.includes('pop') || desc.includes('cola')) {
+        insights.push({
+          type: 'info',
+          title: 'Soda Alert',
+          message: `Soda contains ${drink.calories} calories per serving.`,
+          suggestion: 'Switch to sparkling water with lemon or try diet soda. This could save you 150+ calories per drink!'
+        });
+      }
+      if (desc.includes('juice')) {
+        insights.push({
+          type: 'info',
+          title: 'Juice Calories',
+          message: `Fruit juice contains ${drink.calories} calories.`,
+          suggestion: 'Eat whole fruit instead - you'll get fiber and fewer calories. Save 50-100 calories per serving!'
+        });
+      }
+    });
+
+    return insights;
+  };
+
+  const analyzeBreakfast = (breakfasts) => {
+    const insights = [];
+    const avgCalories = breakfasts.reduce((sum, meal) => sum + meal.calories, 0) / breakfasts.length;
+
+    if (avgCalories > 400) {
+      insights.push({
+        type: 'info',
+        title: 'High-Calorie Breakfast',
+        message: `Your breakfasts average ${Math.round(avgCalories)} calories.`,
+        suggestion: 'Try Greek yogurt with berries (150 cal) instead of sugary cereals. Save 200+ calories!'
+      });
+    }
+
+    // Check for specific breakfast items
+    breakfasts.forEach(meal => {
+      const desc = meal.food_description.toLowerCase();
+      if (desc.includes('cereal') && meal.calories > 200) {
+        insights.push({
+          type: 'info',
+          title: 'Sugary Cereal',
+          message: `Your cereal has ${meal.calories} calories.`,
+          suggestion: 'Switch to plain oatmeal with fruit. Save 100-150 calories and get more fiber!'
+        });
+      }
+      if (desc.includes('bagel') || desc.includes('muffin')) {
+        insights.push({
+          type: 'info',
+          title: 'Bread-Based Breakfast',
+          message: `${meal.food_description} has ${meal.calories} calories.`,
+          suggestion: 'Try 2 eggs with spinach instead. More protein, fewer calories!'
+        });
+      }
+    });
+
+    return insights;
+  };
+
+  const analyzeMainMeals = (meals) => {
+    const insights = [];
+    const avgCalories = meals.reduce((sum, meal) => sum + meal.calories, 0) / meals.length;
+
+    if (avgCalories > 600) {
+      insights.push({
+        type: 'info',
+        title: 'Large Portion Sizes',
+        message: `Your main meals average ${Math.round(avgCalories)} calories.`,
+        suggestion: 'Try using a smaller plate and fill half with vegetables. This could save 200-300 calories per meal!'
+      });
+    }
+
+    // Check for high-calorie cooking methods
+    meals.forEach(meal => {
+      const desc = meal.food_description.toLowerCase();
+      if (desc.includes('fried') || desc.includes('breaded')) {
+        insights.push({
+          type: 'info',
+          title: 'Fried Food Detected',
+          message: `${meal.food_description} likely has extra calories from frying.`,
+          suggestion: 'Try baking, grilling, or air-frying instead. Save 100-200 calories!'
+        });
+      }
+      if (desc.includes('pasta') && meal.calories > 400) {
+        insights.push({
+          type: 'info',
+          title: 'High-Calorie Pasta',
+          message: `Your pasta dish has ${meal.calories} calories.`,
+          suggestion: 'Try zucchini noodles or reduce pasta portion by half. Save 200+ calories!'
+        });
+      }
+      if (desc.includes('cheese') && meal.calories > 500) {
+        insights.push({
+          type: 'info',
+          title: 'Cheesy Dish',
+          message: `${meal.food_description} has ${meal.calories} calories.`,
+          suggestion: 'Use half the cheese or try nutritional yeast. Save 100-150 calories!'
+        });
+      }
+    });
+
+    return insights;
+  };
+
+  const analyzeSnacks = (snacks) => {
+    const insights = [];
+    const avgCalories = snacks.reduce((sum, snack) => sum + snack.calories, 0) / snacks.length;
+
+    if (avgCalories > 200) {
+      insights.push({
+        type: 'info',
+        title: 'High-Calorie Snacks',
+        message: `Your snacks average ${Math.round(avgCalories)} calories.`,
+        suggestion: 'Try apple with 1 tbsp peanut butter (150 cal) or Greek yogurt (100 cal). Save 50-100 calories per snack!'
+      });
+    }
+
+    // Check for specific snack types
+    snacks.forEach(snack => {
+      const desc = snack.food_description.toLowerCase();
+      if (desc.includes('chips') || desc.includes('crackers')) {
+        insights.push({
+          type: 'info',
+          title: 'Processed Snacks',
+          message: `${snack.food_description} has ${snack.calories} calories.`,
+          suggestion: 'Try air-popped popcorn or raw veggies with hummus. Save 100+ calories!'
+        });
+      }
+      if (desc.includes('candy') || desc.includes('chocolate')) {
+        insights.push({
+          type: 'info',
+          title: 'Sugary Snack',
+          message: `${snack.food_description} has ${snack.calories} calories.`,
+          suggestion: 'Try a piece of fruit or dark chocolate (1 square). Save 100-200 calories!'
+        });
+      }
+    });
+
+    return insights;
+  };
 
   const calorieProgress = (todayStats.calories / userGoals.calories) * 100;
   const remainingCalories = Math.max(0, userGoals.calories - todayStats.calories);
