@@ -8,25 +8,25 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Text is required" });
   }
 
-  const prompt = `You are a nutritionist expert. Analyze this food and return ONLY a JSON object with calories and macros.
-  
-  Food to analyze: "${text}"
-  
-  Rules:
-  1. Return valid JSON only
-  2. Format: {"calories": number, "protein": number, "carbs": number, "fat": number}
-  3. Use realistic values
-  4. All numbers should be positive
-  5. Calories should roughly equal: (protein*4 + carbs*4 + fat*9)
-  
-  Example responses:
-  - "2 eggs": {"calories": 140, "protein": 12, "carbs": 0, "fat": 10}
-  - "slice of bread": {"calories": 80, "protein": 3, "carbs": 15, "fat": 1}
-  - "chicken breast": {"calories": 165, "protein": 31, "carbs": 0, "fat": 3.6}`;
+  const prompt = `You are an expert nutritionist with deep knowledge of the USDA Branded Food Products Database and international cuisines, specifically Indian home cooking. 
 
-  // Check if OpenRouter API key is configured
-  if (!process.env.OPENROUTER_KEY) {
-    console.warn('OpenRouter API key not configured. Using mock response for demo.');
+  Task: Convert the user's natural language food description into a structured JSON object.
+
+  Rules:
+  1. Estimate portions based on cues: "large" (1.5x), "small" (0.5x), "handful" (28g/1oz), or standard serving sizes if unspecified.
+  2. For Indian food, account for hidden fats (ghee, oil) and dense ingredients (paneer, lentils).
+  3. Accuracy: Ensure Calories = (Protein * 4) + (Carbohydrates * 4) + (Fat * 9). Round to the nearest whole number.
+  4. Persistence: Never return null or empty fields. Provide your best professional estimate for vague inputs.
+  5. Output: Return ONLY a valid JSON object. No prose, no explanations.
+
+  JSON Schema:
+  {"calories": number, "protein": number, "carbs": number, "fat": number}
+
+  Input: "${text}"`;
+
+  // Check if NVIDIA API key is configured
+  if (!process.env.NVIDIA_API_KEY) {
+    console.warn('NVIDIA API key not configured. Using mock response for demo.');
     // Return mock data for demo purposes
     const mockResponses = {
       '2 eggs': { calories: 140, protein: 12, carbs: 0, fat: 10 },
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     // Find the best match for the input text
     let bestMatch = null;
     let bestScore = 0;
-    
+
     Object.keys(mockResponses).forEach(key => {
       if (text.toLowerCase().includes(key.toLowerCase())) {
         const score = key.length;
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "meta/llama-3.3-70b-instruct",
+          model: "qwen/qwen3.5-397b-a17b",
           messages: [
             {
               role: "user",
