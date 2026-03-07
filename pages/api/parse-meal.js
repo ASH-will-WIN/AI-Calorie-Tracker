@@ -26,17 +26,15 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
+      "https://integrate.api.nvidia.com/v1/chat/completions",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
-          "HTTP-Referer": "https://localhost:3000",
-          "X-Title": "Calorie Tracker",
+          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-3.3-70b-instruct:free",
+          model: "meta/llama-3.3-70b-instruct",
           messages: [
             {
               role: "user",
