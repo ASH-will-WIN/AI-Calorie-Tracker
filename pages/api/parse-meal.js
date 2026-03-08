@@ -70,7 +70,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "qwen/qwen3.5-397b-a17b",
+          model: "qwen/qwen3.5-122b-a10b",
           messages: [
             {
               role: "user",
@@ -78,7 +78,10 @@ export default async function handler(req, res) {
             },
           ],
           temperature: 0.3,
-          max_tokens: 150,
+          max_tokens: 500,
+          chat_template_kwargs: {
+            enable_thinking: false
+          }
         }),
       }
     );
