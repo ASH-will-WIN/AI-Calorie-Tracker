@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { format, startOfWeek, addDays, isToday, isYesterday } from 'date-fns';
-import { 
-  Target, 
-  TrendingUp, 
-  TrendingDown, 
-  Apple, 
-  Coffee, 
-  Utensils, 
+import {
+  Target,
+  TrendingUp,
+  TrendingDown,
+  Apple,
+  Coffee,
+  Utensils,
   Cookie,
   Lightbulb,
   ChevronRight,
@@ -41,9 +41,9 @@ export default function Dashboard({ onTabChange }) {
 
   useEffect(() => {
     fetchData();
-    
+
     window.addEventListener('mealAdded', fetchData);
-    
+
     return () => {
       window.removeEventListener('mealAdded', fetchData);
     };
@@ -53,12 +53,16 @@ export default function Dashboard({ onTabChange }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    // Get local midnight in ISO format
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayISO = today.toISOString();
+
     const { data, error } = await supabase
       .from('meals')
       .select('calories, protein, carbs, fat')
       .eq('user_id', user.id)
-      .gte('created_at', today);
+      .gte('created_at', todayISO);
 
     if (error) {
       console.error('Error fetching today stats:', error);
@@ -80,6 +84,7 @@ export default function Dashboard({ onTabChange }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Get local start of week
     const startDate = startOfWeek(new Date()).toISOString();
     const { data, error } = await supabase
       .from('meals')
@@ -93,8 +98,9 @@ export default function Dashboard({ onTabChange }) {
       return;
     }
 
+    // Group by day (converting UTC to local time)
     const dailyTotals = data.reduce((acc, meal) => {
-      const day = meal.created_at.split('T')[0];
+      const day = format(new Date(meal.created_at), 'yyyy-MM-dd');
       acc[day] = (acc[day] || 0) + meal.calories;
       return acc;
     }, {});
@@ -190,7 +196,7 @@ export default function Dashboard({ onTabChange }) {
     // Fetch last 7 days of data for analysis
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
-    
+
     const { data, error } = await supabase
       .from('meals')
       .select('*')
@@ -202,11 +208,11 @@ export default function Dashboard({ onTabChange }) {
 
     // Analyze patterns and generate insights
     const insights = [];
-    
+
     // Calculate averages
     const totalCalories = data.reduce((sum, meal) => sum + meal.calories, 0);
     const avgCalories = totalCalories / 7;
-    
+
     // Check if user is consistently over/under their goal
     if (avgCalories > userGoals.calories * 1.1) {
       insights.push({
@@ -227,7 +233,7 @@ export default function Dashboard({ onTabChange }) {
     // Check meal timing patterns
     const mealTimes = data.map(meal => new Date(meal.created_at).getHours());
     const lateMeals = mealTimes.filter(hour => hour >= 21).length;
-    
+
     if (lateMeals > data.length * 0.3) {
       insights.push({
         type: 'warning',
@@ -241,7 +247,7 @@ export default function Dashboard({ onTabChange }) {
     const totalProtein = data.reduce((sum, meal) => sum + meal.protein, 0);
     const totalCarbs = data.reduce((sum, meal) => sum + meal.carbs, 0);
     const totalFat = data.reduce((sum, meal) => sum + meal.fat, 0);
-    
+
     const proteinRatio = totalProtein / (totalProtein + totalCarbs + totalFat);
     if (proteinRatio < 0.15) {
       insights.push({
@@ -272,19 +278,19 @@ export default function Dashboard({ onTabChange }) {
     // Categorize meals by time and type
     meals.forEach(meal => {
       if (!meal.food_description) return;
-      
+
       const hour = new Date(meal.created_at).getHours();
       const description = meal.food_description.toLowerCase();
-      
+
       if (hour < 11) mealCategories.breakfast.push(meal);
       else if (hour < 16) mealCategories.lunch.push(meal);
       else if (hour < 21) mealCategories.dinner.push(meal);
       else mealCategories.snacks.push(meal);
 
       // Identify drinks
-      if (description.includes('coffee') || description.includes('tea') || 
-          description.includes('juice') || description.includes('soda') ||
-          description.includes('milk') || description.includes('smoothie')) {
+      if (description.includes('coffee') || description.includes('tea') ||
+        description.includes('juice') || description.includes('soda') ||
+        description.includes('milk') || description.includes('smoothie')) {
         mealCategories.drinks.push(meal);
       }
     });
@@ -325,7 +331,7 @@ export default function Dashboard({ onTabChange }) {
     if (avgDrinkCalories > 100) {
       const highCalorieDrinks = drinks.filter(drink => drink.calories > 100);
       const descriptions = highCalorieDrinks.map(drink => drink.food_description).join(', ');
-      
+
       insights.push({
         type: 'info',
         title: 'High-Calorie Drinks Detected',
@@ -481,7 +487,7 @@ export default function Dashboard({ onTabChange }) {
   const remainingCalories = Math.max(0, userGoals.calories - todayStats.calories);
 
   const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary' }) => (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="card p-6"
@@ -561,7 +567,7 @@ export default function Dashboard({ onTabChange }) {
           <h1 className="text-3xl font-bold text-neutral-900">Dashboard</h1>
           <p className="text-neutral-600 mt-1">Track your nutrition and get personalized insights</p>
         </div>
-        <button 
+        <button
           onClick={() => setShowGoalSettings(true)}
           className="btn-primary flex items-center gap-2"
         >
@@ -619,7 +625,7 @@ export default function Dashboard({ onTabChange }) {
             </div>
             <div className="mt-6 text-center">
               <p className="text-sm text-neutral-600">
-                {remainingCalories > 0 
+                {remainingCalories > 0
                   ? `${remainingCalories} calories remaining today`
                   : `${Math.abs(remainingCalories)} calories over goal`
                 }
@@ -634,16 +640,16 @@ export default function Dashboard({ onTabChange }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={weeklyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     stroke="#6b7280"
                     fontSize={12}
                   />
-                  <YAxis 
+                  <YAxis
                     stroke="#6b7280"
                     fontSize={12}
                   />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{
                       backgroundColor: 'white',
                       border: '1px solid #e5e7eb',
@@ -651,10 +657,10 @@ export default function Dashboard({ onTabChange }) {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="calories" 
-                    stroke="#22c55e" 
+                  <Line
+                    type="monotone"
+                    dataKey="calories"
+                    stroke="#22c55e"
                     strokeWidth={3}
                     dot={{ fill: '#22c55e', strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, stroke: '#22c55e', strokeWidth: 2 }}
@@ -693,7 +699,7 @@ export default function Dashboard({ onTabChange }) {
                   {macroData.map((macro, index) => (
                     <div key={macro.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div 
+                        <div
                           className="w-4 h-4 rounded-full"
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         />
@@ -727,11 +733,10 @@ export default function Dashboard({ onTabChange }) {
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      insight.type === 'warning' 
-                        ? 'bg-red-50 border-red-400' 
+                    className={`p-4 rounded-lg border-l-4 ${insight.type === 'warning'
+                        ? 'bg-red-50 border-red-400'
                         : 'bg-blue-50 border-blue-400'
-                    }`}
+                      }`}
                   >
                     <h4 className="font-medium text-neutral-900 mb-1">{insight.title}</h4>
                     <p className="text-sm text-neutral-600 mb-2">{insight.message}</p>
@@ -755,7 +760,7 @@ export default function Dashboard({ onTabChange }) {
                 const Icon = meal.icon;
                 const totalCalories = mealDistribution.reduce((sum, m) => sum + m.calories, 0);
                 const percentage = totalCalories > 0 ? (meal.calories / totalCalories) * 100 : 0;
-                
+
                 return (
                   <div key={meal.name} className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-neutral-100">
@@ -767,7 +772,7 @@ export default function Dashboard({ onTabChange }) {
                         <span className="text-sm text-neutral-600">{Math.round(meal.calories)} cal</span>
                       </div>
                       <div className="w-full bg-neutral-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-primary-500 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${percentage}%` }}
                         />
@@ -783,21 +788,21 @@ export default function Dashboard({ onTabChange }) {
           <div className="card p-6">
             <h3 className="text-lg font-semibold text-neutral-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => onTabChange && onTabChange('add-meal')}
                 className="w-full btn-primary flex items-center justify-between hover:bg-primary-700 transition-colors"
               >
                 <span>Add Meal</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button 
+              <button
                 onClick={() => onTabChange && onTabChange('history')}
                 className="w-full btn-secondary flex items-center justify-between hover:bg-neutral-100 transition-colors"
               >
                 <span>View History</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button 
+              <button
                 onClick={() => setShowGoalSettings(true)}
                 className="w-full btn-secondary flex items-center justify-between hover:bg-neutral-100 transition-colors"
               >
