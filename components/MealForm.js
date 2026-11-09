@@ -19,7 +19,7 @@ export default function MealForm({ onBack }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState(-1);
@@ -64,7 +64,7 @@ export default function MealForm({ onBack }) {
     
     setLoading(true);
     setError("");
-    setSuccess(false);
+    setSuccess("");
 
     try {
       const res = await fetch("/api/parse-meal", {
@@ -73,11 +73,22 @@ export default function MealForm({ onBack }) {
         body: JSON.stringify({ text }),
       });
 
+      const parsedMeal = await res.json();
       if (!res.ok) {
-        throw new Error('Failed to parse meal');
+        const details = [parsedMeal.code, parsedMeal.details, parsedMeal.requestId && `Request ID: ${parsedMeal.requestId}`]
+          .filter(Boolean)
+          .join(" · ");
+        const parseError = new Error(
+          [parsedMeal.error || `Meal nutrition request failed (HTTP ${res.status})`, details]
+            .filter(Boolean)
+            .join(" — ")
+        );
+        parseError.code = parsedMeal.code || "MEAL_PARSE_FAILED";
+        parseError.requestId = parsedMeal.requestId;
+        throw parseError;
       }
 
-      const { calories, protein, carbs, fat } = await res.json();
+      const { calories, protein, carbs, fat } = parsedMeal;
 
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -97,17 +108,22 @@ export default function MealForm({ onBack }) {
       if (supabaseError) throw supabaseError;
 
       setText("");
-      setSuccess(true);
+      setSuccess("Meal added successfully!");
       
       // Trigger a refresh by dispatching a custom event
       window.dispatchEvent(new CustomEvent('mealAdded'));
       
-      // Hide success message after 3 seconds
-      setTimeout(() => setSuccess(false), 3000);
+      // Hide success message after a few seconds
+      setTimeout(() => setSuccess(""), 4000);
       
     } catch (error) {
-      console.error("Error saving meal:", error);
-      setError("Failed to add meal. Please try again.");
+      console.error("Meal save failed:", {
+        code: error.code || "MEAL_SAVE_FAILED",
+        requestId: error.requestId,
+        message: error.message,
+        error,
+      });
+      setError(error.message || "Failed to add meal. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -270,7 +286,7 @@ export default function MealForm({ onBack }) {
               >
                 <div className="flex items-center gap-2 text-green-700">
                   <Check className="w-4 h-4" />
-                  <span className="text-sm font-medium">Meal added successfully!</span>
+                  <span className="text-sm font-medium">{success}</span>
                 </div>
               </motion.div>
             )}

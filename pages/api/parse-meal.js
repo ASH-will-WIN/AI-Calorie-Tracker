@@ -1,155 +1,209 @@
+const NVIDIA_MODEL = "qwen/qwen3.5-122b-a10b";
+
+function makeRequestId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function redactDiagnostic(value, mealDescription) {
+  let detail = String(value || "");
+
+  if (mealDescription) {
+    detail = detail
+      .replaceAll(mealDescription, "[meal description]")
+      .replaceAll(JSON.stringify(mealDescription), '"[meal description]"');
+  }
+  if (process.env.NVIDIA_API_KEY) {
+    detail = detail.replaceAll(process.env.NVIDIA_API_KEY, "[redacted API key]");
+  }
+
+  return detail.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").slice(0, 800);
+}
+
+function getProviderErrorMessage(body) {
+  const asText = (value) => typeof value === "string" ? value : JSON.stringify(value);
+
+  try {
+    const parsed = JSON.parse(body);
+    const providerError = parsed.error;
+    if (typeof providerError === "string") return providerError;
+    if (providerError?.message) return asText(providerError.message);
+    if (parsed.detail) return asText(parsed.detail);
+    if (parsed.message) return asText(parsed.message);
+  } catch {
+    // Non-JSON error bodies are returned as a short diagnostic excerpt.
+  }
+
+  return body || "The provider returned an empty error response.";
+}
+
+function fail(res, requestId, status, code, message, details) {
+  const diagnostic = { requestId, code, message, details };
+  console.error(`[parse-meal:${requestId}] ${JSON.stringify(diagnostic)}`);
+  return res.status(status).json({ error: message, code, details, requestId });
+}
+
+function parseNutrition(content) {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+  const fields = ["calories", "protein", "carbs", "fat"];
+
+  for (const field of fields) {
+    if (typeof parsed[field] !== "number" || !Number.isFinite(parsed[field]) || parsed[field] < 0) {
+      throw new Error(`Invalid or missing numeric field: ${field}`);
+    }
+  }
+
+  return {
+    calories: Math.round(parsed.calories),
+    protein: Math.round(parsed.protein * 10) / 10,
+    carbs: Math.round(parsed.carbs * 10) / 10,
+    fat: Math.round(parsed.fat * 10) / 10,
+  };
+}
+
 export default async function handler(req, res) {
+  const requestId = makeRequestId();
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text } = req.body;
+  const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
   if (!text) {
     return res.status(400).json({ error: "Text is required" });
   }
-
-  const prompt = `You are an expert nutritionist with deep knowledge of the USDA Branded Food Products Database and international cuisines, specifically Indian home cooking. 
-
-  Task: Convert the user's natural language food description into a structured JSON object.
-
-  Rules:
-  1. Estimate portions based on cues: "large" (1.5x), "small" (0.5x), "handful" (28g/1oz), or standard serving sizes if unspecified.
-  2. For Indian food, account for hidden fats (ghee, oil) and dense ingredients (paneer, lentils).
-  3. Accuracy: Ensure Calories = (Protein * 4) + (Carbohydrates * 4) + (Fat * 9). Round to the nearest whole number.
-  4. Persistence: Never return null or empty fields. Provide your best professional estimate for vague inputs.
-  5. Output: Return ONLY a valid JSON object. No prose, no explanations.
-
-  JSON Schema:
-  {"calories": number, "protein": number, "carbs": number, "fat": number}
-
-  Input: "${text}"`;
-
-  // Check if NVIDIA API key is configured
-  if (!process.env.NVIDIA_API_KEY) {
-    console.warn('NVIDIA API key not configured. Using mock response for demo.');
-    // Return mock data for demo purposes
-    const mockResponses = {
-      '2 eggs': { calories: 140, protein: 12, carbs: 0, fat: 10 },
-      'toast': { calories: 80, protein: 3, carbs: 15, fat: 1 },
-      'chicken': { calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-      'rice': { calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
-      'apple': { calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
-      'salmon': { calories: 208, protein: 25, carbs: 0, fat: 12 },
-      'pasta': { calories: 131, protein: 5, carbs: 25, fat: 1.1 },
-      'bread': { calories: 80, protein: 3, carbs: 15, fat: 1 },
-      'milk': { calories: 103, protein: 8, carbs: 12, fat: 2.4 },
-      'banana': { calories: 105, protein: 1.3, carbs: 27, fat: 0.4 }
-    };
-
-    // Find the best match for the input text
-    let bestMatch = null;
-    let bestScore = 0;
-
-    Object.keys(mockResponses).forEach(key => {
-      if (text.toLowerCase().includes(key.toLowerCase())) {
-        const score = key.length;
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = mockResponses[key];
-        }
-      }
-    });
-
-    // Return mock response or default
-    const response = bestMatch || { calories: 200, protein: 10, carbs: 20, fat: 8 };
-    return res.status(200).json(response);
+  if (text.length > 500) {
+    return res.status(400).json({ error: "Meal descriptions must be 500 characters or fewer" });
   }
 
-  try {
-    const response = await fetch(
-      "https://integrate.api.nvidia.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "qwen/qwen3.5-122b-a10b",
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 500,
-          chat_template_kwargs: {
-            enable_thinking: false
-          }
-        }),
-      }
+  if (!process.env.NVIDIA_API_KEY) {
+    return fail(
+      res,
+      requestId,
+      503,
+      "NVIDIA_API_KEY_MISSING",
+      "Meal nutrition service is not configured.",
+      "Set NVIDIA_API_KEY in the deployment environment and redeploy."
     );
+  }
 
+  const prompt = `You estimate nutrition for meals, including common international foods and Indian home cooking.
+
+Rules:
+- Estimate portions from cues such as large (1.5x), small (0.5x), and handful (28g/1oz). Use a standard serving when no portion is given.
+- Account for likely cooking fats and dense ingredients such as ghee, oil, paneer, and lentils.
+- Return calories as a whole number and protein, carbs, and fat in grams.
+- Keep calories reasonably consistent with (protein * 4) + (carbs * 4) + (fat * 9).
+- Return only a valid JSON object. Do not include markdown or explanations.
+
+Schema: {"calories": number, "protein": number, "carbs": number, "fat": number}
+Meal description: ${JSON.stringify(text)}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: NVIDIA_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 250,
+        chat_template_kwargs: { enable_thinking: false },
+      }),
+    });
+
+    const responseBody = await response.text();
     if (!response.ok) {
-      console.error("API error:", await response.text());
-      return res.status(500).json({ error: "Failed to parse meal" });
-    }
-
-    const data = await response.json();
-    console.log("API Response:", data); // Debug log
-
-    let content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      console.error("Empty response:", data);
-      return res.status(500).json({ error: "Empty response from API" });
-    }
-
-    // Try to extract JSON if it's wrapped in other text
-    try {
-      const jsonMatch = content.match(/\{[^]*\}/);
-      if (jsonMatch) {
-        content = jsonMatch[0];
-      }
-
-      const parsedData = JSON.parse(content);
-
-      // Basic validation
-      if (
-        typeof parsedData.calories !== "number" ||
-        typeof parsedData.protein !== "number" ||
-        typeof parsedData.carbs !== "number" ||
-        typeof parsedData.fat !== "number"
-      ) {
-        throw new Error("Missing required numeric fields");
-      }
-
-      // Round all numbers to 1 decimal place
-      const result = {
-        calories: Math.round(parsedData.calories),
-        protein: Math.round(parsedData.protein * 10) / 10,
-        carbs: Math.round(parsedData.carbs * 10) / 10,
-        fat: Math.round(parsedData.fat * 10) / 10,
-      };
-
-      // Validate the calorie calculation is roughly correct
-      const calculatedCalories = Math.round(
-        result.protein * 4 + result.carbs * 4 + result.fat * 9
+      const providerMessage = redactDiagnostic(getProviderErrorMessage(responseBody), text);
+      return fail(
+        res,
+        requestId,
+        502,
+        "NVIDIA_UPSTREAM_ERROR",
+        "NVIDIA rejected or could not process the nutrition request.",
+        `Model ${NVIDIA_MODEL}; HTTP ${response.status}: ${providerMessage}`
       );
+    }
 
-      // Allow for a 30% margin of error in calorie calculations
-      const marginOfError =
-        Math.abs(result.calories - calculatedCalories) / result.calories;
-      if (marginOfError > 0.3) {
-        console.warn("Calorie calculation mismatch:", {
-          provided: result.calories,
-          calculated: calculatedCalories,
-          difference: marginOfError,
-        });
-      }
+    let data;
+    try {
+      data = JSON.parse(responseBody);
+    } catch {
+      return fail(
+        res,
+        requestId,
+        502,
+        "NVIDIA_INVALID_RESPONSE_JSON",
+        "NVIDIA returned a response that was not valid JSON.",
+        `HTTP ${response.status}: ${redactDiagnostic(responseBody, text) || "Empty response body."}`
+      );
+    }
 
-      res.status(200).json(result);
-    } catch (parseError) {
-      console.error("Parse error:", parseError.message, "Content:", content);
-      res.status(500).json({ error: "Invalid response format" });
+    if (!data || typeof data !== "object") {
+      return fail(
+        res,
+        requestId,
+        502,
+        "NVIDIA_INVALID_RESPONSE_SHAPE",
+        "NVIDIA returned a response in an unexpected format.",
+        `Expected a JSON object; received ${data === null ? "null" : typeof data}.`
+      );
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || !content.trim()) {
+      const finishReason = data.choices?.[0]?.finish_reason || "not provided";
+      return fail(
+        res,
+        requestId,
+        502,
+        "NVIDIA_EMPTY_MODEL_OUTPUT",
+        "NVIDIA returned no nutrition content.",
+        `Response keys: ${Object.keys(data).join(", ") || "none"}; finish reason: ${finishReason}.`
+      );
+    }
+
+    try {
+      return res.status(200).json({ ...parseNutrition(content.trim()) });
+    } catch (error) {
+      return fail(
+        res,
+        requestId,
+        502,
+        "NVIDIA_INVALID_MODEL_OUTPUT",
+        "NVIDIA returned nutrition content that could not be parsed.",
+        redactDiagnostic(`${error.message}. Model output: ${content}`, text)
+      );
     }
   } catch (error) {
-    console.error("Network error:", error);
-    res.status(500).json({ error: "Service unavailable" });
+    if (error.name === "AbortError") {
+      return fail(
+        res,
+        requestId,
+        504,
+        "NVIDIA_REQUEST_TIMEOUT",
+        "NVIDIA did not respond before the 8-second timeout.",
+        "Check NVIDIA service status and model availability, then retry."
+      );
+    }
+
+    const details = redactDiagnostic(`${error.name || "Error"}: ${error.message}`, text);
+    return fail(
+      res,
+      requestId,
+      502,
+      "NVIDIA_NETWORK_ERROR",
+      "The server could not complete its request to NVIDIA.",
+      details
+    );
+  } finally {
+    clearTimeout(timeout);
   }
 }

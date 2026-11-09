@@ -8,7 +8,6 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️ Supabase environment variables are not set. Please create a .env.local file with:')
   console.warn('NEXT_PUBLIC_SUPABASE_URL=your_supabase_url')
   console.warn('NEXT_PUBLIC_SUPABASE_KEY=your_supabase_anon_key')
-  console.warn('OPENROUTER_KEY=your_openrouter_api_key')
 }
 
 // Create a mock client for development if env vars are missing

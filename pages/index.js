@@ -99,7 +99,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 lg:flex">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -114,10 +114,10 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <motion.div
-        initial={{ x: -300 }}
-        animate={{ x: sidebarOpen ? 0 : -300 }}
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-medium transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 transform bg-white shadow-medium transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
@@ -183,10 +183,10 @@ export default function Home() {
             </button>
           </div>
         </div>
-      </motion.div>
+      </aside>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Header */}
         <header className="bg-white border-b border-neutral-200 sticky top-0 z-30">
           <div className="flex items-center justify-between px-6 py-4">
@@ -212,7 +212,7 @@ export default function Home() {
         </header>
 
         {/* Page Content */}
-        <main className="min-h-screen">
+        <main className="flex-1">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -231,7 +231,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center">
               <p className="text-sm text-neutral-600">
-                Built with Next.js, Tailwind CSS, and OpenRouter.ai
+                Built with Next.js, Tailwind CSS, and NVIDIA NIM
               </p>
               <p className="text-xs text-neutral-500 mt-1">
                 AI-powered nutrition tracking for better health

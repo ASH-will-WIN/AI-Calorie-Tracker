@@ -11,8 +11,8 @@ Create a `.env.local` file in the root directory with the following variables:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_KEY=your_supabase_anon_key
 
-# OpenRouter.ai API Key
-OPENROUTER_KEY=your_openrouter_api_key
+# NVIDIA API key for AI meal nutrition parsing
+NVIDIA_API_KEY=your_nvidia_api_key
 ```
 
 ### 2. Get Your API Keys
@@ -23,11 +23,12 @@ OPENROUTER_KEY=your_openrouter_api_key
 3. Copy the "Project URL" and "anon public" key
 4. Add them to your `.env.local` file
 
-#### OpenRouter.ai Setup
-1. Go to [openrouter.ai](https://openrouter.ai) and sign up
-2. Go to API Keys section
-3. Create a new API key
-4. Add it to your `.env.local` file
+#### NVIDIA API Setup
+1. Go to [NVIDIA Build](https://build.nvidia.com/) and sign in
+2. Open the Qwen 3.5 122B A10B model page and create an API key
+3. Add the key as `NVIDIA_API_KEY` in `.env.local`
+
+Meal logging requires this key. If the NVIDIA request fails, the API and browser console will show a diagnostic code, provider response detail, and request ID.
 
 ### 3. Database Setup
 
@@ -120,8 +121,8 @@ To enable full functionality, follow the setup steps above.
    - Ensure Row Level Security is enabled in Supabase
 
 3. **AI meal parsing not working**
-   - Verify your OpenRouter.ai API key is correct
-   - Check the API key has sufficient credits
+   - Verify `NVIDIA_API_KEY` is set in your deployment environment
+   - Check the browser console and deployment function logs for the diagnostic code and request ID
 
 4. **Database errors**
    - Run the SQL setup script in Supabase
@@ -144,4 +145,4 @@ Once set up, you'll have access to:
 - ✅ Goal setting and tracking
 - ✅ Advanced analytics and charts
 - ✅ Modern, responsive design
-- ✅ Mobile-optimized interface 
+- ✅ Mobile-optimized interface

@@ -57,7 +57,7 @@ A modern, AI-powered nutrition tracking application built with Next.js, featurin
 
 ### Backend Improvements
 - **Enhanced API**: New endpoints for goal management and user preferences
-- **Better Error Handling**: Comprehensive error messages and fallbacks
+- **Better Error Handling**: Actionable service diagnostics and error messages
 - **Data Validation**: Input validation and sanitization
 - **Security**: Proper authentication and authorization checks
 
@@ -97,7 +97,7 @@ CREATE TABLE user_goals (
 - Node.js 16+ 
 - npm or yarn
 - Supabase account
-- OpenRouter.ai API key
+- NVIDIA API key for meal nutrition parsing
 
 ### Installation
 
@@ -116,8 +116,8 @@ CREATE TABLE user_goals (
    Create a `.env.local` file:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   OPENROUTER_KEY=your_openrouter_api_key
+   NEXT_PUBLIC_SUPABASE_KEY=your_supabase_anon_key
+   NVIDIA_API_KEY=your_nvidia_api_key
    ```
 
 4. **Database Setup**
@@ -226,7 +226,7 @@ This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 
-- **OpenRouter.ai** for AI meal parsing
+- **NVIDIA NIM** for AI meal parsing
 - **Supabase** for backend services
 - **Tailwind CSS** for styling
 - **Framer Motion** for animations
@@ -234,4 +234,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Built with ❤️ for better nutrition tracking and health awareness** 
+**Built with ❤️ for better nutrition tracking and health awareness**
