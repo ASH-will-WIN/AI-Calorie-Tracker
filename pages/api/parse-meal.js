@@ -1,4 +1,4 @@
-const NVIDIA_MODEL = "qwen/qwen3.5-122b-a10b";
+const NVIDIA_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
 
 function makeRequestId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -113,9 +113,11 @@ Meal description: ${JSON.stringify(text)}`;
       body: JSON.stringify({
         model: NVIDIA_MODEL,
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 250,
-        chat_template_kwargs: { enable_thinking: false },
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: 2048,
+        seed: 42,
+        chat_template_kwargs: { enable_thinking: true },
       }),
     });
 

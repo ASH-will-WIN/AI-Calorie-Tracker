@@ -25,7 +25,7 @@ NVIDIA_API_KEY=your_nvidia_api_key
 
 #### NVIDIA API Setup
 1. Go to [NVIDIA Build](https://build.nvidia.com/) and sign in
-2. Open the Qwen 3.5 122B A10B model page and create an API key
+2. Open the [Nemotron 3.5 Super VL 120B A12B model page](https://build.nvidia.com/nvidia/nemotron-3.5-super-vl-120b-a12b) and create an API key
 3. Add the key as `NVIDIA_API_KEY` in `.env.local`
 
 Meal logging requires this key. If the NVIDIA request fails, the API and browser console will show a diagnostic code, provider response detail, and request ID.
