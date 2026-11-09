@@ -100,7 +100,7 @@ Schema: {"calories": number, "protein": number, "carbs": number, "fat": number}
 Meal description: ${JSON.stringify(text)}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
@@ -117,6 +117,7 @@ Meal description: ${JSON.stringify(text)}`;
         top_p: 0.95,
         max_tokens: 2048,
         seed: 42,
+        stream: false,
         chat_template_kwargs: { enable_thinking: true },
       }),
     });
@@ -191,7 +192,7 @@ Meal description: ${JSON.stringify(text)}`;
         requestId,
         504,
         "NVIDIA_REQUEST_TIMEOUT",
-        "NVIDIA did not respond before the 8-second timeout.",
+        "NVIDIA did not respond before the 25-second timeout.",
         "Check NVIDIA service status and model availability, then retry."
       );
     }

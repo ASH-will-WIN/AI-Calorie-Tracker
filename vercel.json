@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "pages/api/parse-meal.js": {
+      "maxDuration": 30
+    }
+  }
+}
