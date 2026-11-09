@@ -1,4 +1,5 @@
 const NVIDIA_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
+const MAX_RESPONSE_TOKENS = 256;
 
 function makeRequestId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -115,10 +116,10 @@ Meal description: ${JSON.stringify(text)}`;
         messages: [{ role: "user", content: prompt }],
         temperature: 1,
         top_p: 0.95,
-        max_tokens: 2048,
+        max_tokens: MAX_RESPONSE_TOKENS,
         seed: 42,
         stream: false,
-        chat_template_kwargs: { enable_thinking: true },
+        reasoning_effort: "none",
       }),
     });
 
@@ -169,7 +170,7 @@ Meal description: ${JSON.stringify(text)}`;
         502,
         "NVIDIA_EMPTY_MODEL_OUTPUT",
         "NVIDIA returned no nutrition content.",
-        `Response keys: ${Object.keys(data).join(", ") || "none"}; finish reason: ${finishReason}.`
+        `Response keys: ${Object.keys(data).join(", ") || "none"}; finish reason: ${finishReason}; max_tokens: ${MAX_RESPONSE_TOKENS}.`
       );
     }
 
