@@ -115,7 +115,7 @@ export default function Home() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 transform bg-white shadow-medium transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 transform bg-surface shadow-medium transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -188,7 +188,7 @@ export default function Home() {
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Header */}
-        <header className="bg-white border-b border-neutral-200 sticky top-0 z-30">
+        <header className="bg-surface border-b border-neutral-200 sticky top-0 z-30">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <button
@@ -227,7 +227,7 @@ export default function Home() {
         </main>
 
         {/* Footer */}
-        <footer className="bg-white border-t border-neutral-200 py-6">
+        <footer className="bg-surface border-t border-neutral-200 py-6">
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center">
               <p className="text-sm text-neutral-600">

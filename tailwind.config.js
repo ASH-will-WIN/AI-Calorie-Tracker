@@ -3,6 +3,9 @@ module.exports = {
       "./pages/**/*.{js,ts,jsx,tsx}",
       "./components/**/*.{js,ts,jsx,tsx}",
     ],
+    safelist: [
+      { pattern: /(bg|text)-(primary|secondary|blue|purple)-(100|600)/ },
+    ],
     theme: {
       extend: {
         colors: {
@@ -31,17 +34,18 @@ module.exports = {
             900: '#7c2d12',
           },
           neutral: {
-            50: '#fafafa',
-            100: '#f5f5f5',
-            200: '#e5e5e5',
-            300: '#d4d4d4',
-            400: '#a3a3a3',
-            500: '#737373',
-            600: '#525252',
-            700: '#404040',
-            800: '#262626',
-            900: '#171717',
-          }
+            50: 'rgb(var(--neutral-50) / <alpha-value>)',
+            100: 'rgb(var(--neutral-100) / <alpha-value>)',
+            200: 'rgb(var(--neutral-200) / <alpha-value>)',
+            300: 'rgb(var(--neutral-300) / <alpha-value>)',
+            400: 'rgb(var(--neutral-400) / <alpha-value>)',
+            500: 'rgb(var(--neutral-500) / <alpha-value>)',
+            600: 'rgb(var(--neutral-600) / <alpha-value>)',
+            700: 'rgb(var(--neutral-700) / <alpha-value>)',
+            800: 'rgb(var(--neutral-800) / <alpha-value>)',
+            900: 'rgb(var(--neutral-900) / <alpha-value>)',
+          },
+          surface: 'rgb(var(--surface-color) / <alpha-value>)',
         },
         fontFamily: {
           sans: ['Inter', 'system-ui', 'sans-serif'],

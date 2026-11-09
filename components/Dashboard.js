@@ -18,6 +18,12 @@ import {
 import { motion } from 'framer-motion';
 import GoalSettings from './GoalSettings';
 
+function getLocalDayStartISO() {
+  const localMidnight = new Date();
+  localMidnight.setHours(0, 0, 0, 0);
+  return localMidnight.toISOString();
+}
+
 export default function Dashboard({ onTabChange }) {
   const [todayStats, setTodayStats] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [weeklyData, setWeeklyData] = useState([]);
@@ -50,34 +56,31 @@ export default function Dashboard({ onTabChange }) {
   }, []);
 
   async function fetchTodayStats() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // Get local midnight in ISO format
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayISO = today.toISOString();
+      const { data, error } = await supabase
+        .from('meals')
+        .select('calories, protein, carbs, fat')
+        .eq('user_id', user.id)
+        .gte('created_at', getLocalDayStartISO());
 
-    const { data, error } = await supabase
-      .from('meals')
-      .select('calories, protein, carbs, fat')
-      .eq('user_id', user.id)
-      .gte('created_at', todayISO);
+      if (error) throw error;
 
-    if (error) {
+      const stats = data.reduce((acc, meal) => ({
+        calories: acc.calories + meal.calories,
+        protein: acc.protein + meal.protein,
+        carbs: acc.carbs + meal.carbs,
+        fat: acc.fat + meal.fat,
+      }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+      setTodayStats(stats);
+    } catch (error) {
       console.error('Error fetching today stats:', error);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const stats = data.reduce((acc, meal) => ({
-      calories: acc.calories + meal.calories,
-      protein: acc.protein + meal.protein,
-      carbs: acc.carbs + meal.carbs,
-      fat: acc.fat + meal.fat,
-    }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
-
-    setTodayStats(stats);
-    setLoading(false);
   }
 
   async function fetchWeeklyData() {
@@ -122,7 +125,7 @@ export default function Dashboard({ onTabChange }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDayStartISO();
     const { data, error } = await supabase
       .from('meals')
       .select('protein, carbs, fat')
@@ -138,7 +141,10 @@ export default function Dashboard({ onTabChange }) {
     }), { protein: 0, carbs: 0, fat: 0 });
 
     const total = totals.protein + totals.carbs + totals.fat;
-    if (total === 0) return;
+    if (total === 0) {
+      setMacroData([]);
+      return;
+    }
 
     setMacroData([
       { name: 'Protein', value: Math.round((totals.protein / total) * 100), grams: totals.protein },
@@ -151,7 +157,7 @@ export default function Dashboard({ onTabChange }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDayStartISO();
     const { data, error } = await supabase
       .from('meals')
       .select('calories, created_at')
@@ -516,7 +522,7 @@ export default function Dashboard({ onTabChange }) {
         <svg width={size} height={size} className="progress-ring">
           <circle
             className="progress-ring-circle"
-            stroke="#e5e7eb"
+            stroke="rgb(var(--neutral-200))"
             fill="transparent"
             strokeWidth={strokeWidth}
             r={radius}
@@ -639,20 +645,20 @@ export default function Dashboard({ onTabChange }) {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--neutral-200))" />
                   <XAxis
                     dataKey="date"
-                    stroke="#6b7280"
+                    stroke="rgb(var(--neutral-500))"
                     fontSize={12}
                   />
                   <YAxis
-                    stroke="#6b7280"
+                    stroke="rgb(var(--neutral-500))"
                     fontSize={12}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
+                      backgroundColor: 'rgb(var(--surface-color))',
+                      border: '1px solid rgb(var(--neutral-200))',
                       borderRadius: '8px',
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}

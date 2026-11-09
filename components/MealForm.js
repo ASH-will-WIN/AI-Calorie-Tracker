@@ -238,7 +238,7 @@ export default function MealForm({ onBack }) {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute z-10 w-full mt-2 bg-white border border-neutral-200 rounded-lg shadow-medium max-h-60 overflow-y-auto"
+                  className="absolute z-10 w-full mt-2 bg-surface border border-neutral-200 rounded-lg shadow-medium max-h-60 overflow-y-auto"
                 >
                   {suggestions.map((suggestion, index) => (
                     <button

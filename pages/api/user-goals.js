@@ -97,7 +97,7 @@ export default async function handler(req, res) {
         // Update existing goals
         const { data, error } = await supabase
           .from('user_goals')
-          .upsert([goalData])
+          .upsert([goalData], { onConflict: 'user_id' })
           .select()
           .single();
 
@@ -109,4 +109,4 @@ export default async function handler(req, res) {
     console.error('Error in user-goals API:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
-} 
+}
