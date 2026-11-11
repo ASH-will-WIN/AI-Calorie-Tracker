@@ -10,6 +10,16 @@ function errorResponse(res, status, code, message, details) {
   return res.status(status).json({ error: message, code, details, requestId });
 }
 
+function makeApiError(status, code, message, details) {
+  const error = new Error(message);
+  Object.defineProperties(error, {
+    status: { value: status },
+    code: { value: code },
+    details: { value: details },
+  });
+  return error;
+}
+
 async function getUserClient(req) {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
   if (!token) return { error: 'Authorization is required.' };
@@ -160,10 +170,7 @@ function parseInsights(content, facts) {
 
 async function generateInsights(facts) {
   if (!process.env.NVIDIA_API_KEY) {
-    const error = new Error('AI insights are not configured.');
-    error.status = 503;
-    error.code = 'NVIDIA_API_KEY_MISSING';
-    throw error;
+    throw makeApiError(503, 'NVIDIA_API_KEY_MISSING', 'AI insights are not configured.');
   }
 
   const prompt = `You write practical nutrition-coaching suggestions using verified facts. Choose up to three useful facts and return one brief, specific suggestion for each.
@@ -199,32 +206,23 @@ Verified facts: ${JSON.stringify(facts)}`;
     });
     const body = await response.text();
     if (!response.ok) {
-      const error = new Error(`NVIDIA returned HTTP ${response.status}.`);
-      error.status = 502;
-      error.code = 'NVIDIA_UPSTREAM_ERROR';
-      error.details = body.slice(0, 400);
-      throw error;
+      throw makeApiError(502, 'NVIDIA_UPSTREAM_ERROR', `NVIDIA returned HTTP ${response.status}.`, body.slice(0, 400));
     }
     const result = JSON.parse(body);
     const content = result.choices?.[0]?.message?.content;
     if (typeof content !== 'string' || !content.trim()) {
-      const error = new Error('NVIDIA returned no insight content.');
-      error.status = 502;
-      error.code = 'NVIDIA_EMPTY_MODEL_OUTPUT';
-      throw error;
+      throw makeApiError(502, 'NVIDIA_EMPTY_MODEL_OUTPUT', 'NVIDIA returned no insight content.');
     }
     return parseInsights(content, facts);
   } catch (error) {
     if (error.name === 'AbortError') {
-      error.status = 504;
-      error.code = 'NVIDIA_REQUEST_TIMEOUT';
-      error.message = 'NVIDIA did not respond before the 25-second timeout.';
+      throw makeApiError(504, 'NVIDIA_REQUEST_TIMEOUT', 'NVIDIA did not respond before the 25-second timeout.');
     }
-    if (!error.status) {
-      error.status = 502;
-      error.code = 'NVIDIA_INVALID_MODEL_OUTPUT';
+    if (error.status && error.code) throw error;
+    if (error instanceof TypeError) {
+      throw makeApiError(502, 'NVIDIA_NETWORK_ERROR', `Could not connect to NVIDIA: ${error.message}`);
     }
-    throw error;
+    throw makeApiError(502, 'NVIDIA_INVALID_MODEL_OUTPUT', error.message || 'NVIDIA returned an invalid insight response.');
   } finally {
     clearTimeout(timeout);
   }
