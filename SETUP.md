@@ -62,9 +62,18 @@ CREATE TABLE user_goals (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Cache the latest AI insight set for each user
+CREATE TABLE user_insights (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  insights JSONB NOT NULL DEFAULT '[]'::jsonb,
+  source_hash TEXT NOT NULL,
+  generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Enable Row Level Security
 ALTER TABLE meals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_insights ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
 CREATE POLICY "Users can view their own meals" ON meals
@@ -87,6 +96,16 @@ CREATE POLICY "Users can insert their own goals" ON user_goals
 
 CREATE POLICY "Users can update their own goals" ON user_goals
   FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own insights" ON user_insights
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own insights" ON user_insights
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own insights" ON user_insights
+  FOR UPDATE USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 ```
 
 ### 4. Start the Application

@@ -89,6 +89,14 @@ CREATE TABLE user_goals (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Cached AI insights (also add the RLS policies shown in SETUP.md)
+CREATE TABLE user_insights (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  insights JSONB NOT NULL DEFAULT '[]'::jsonb,
+  source_hash TEXT NOT NULL,
+  generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 ```
 
 ## 🚀 Getting Started

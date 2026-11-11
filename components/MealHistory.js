@@ -193,10 +193,10 @@ export default function MealHistory({ onBack }) {
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="p-4 hover:bg-neutral-50 transition-colors border-b border-neutral-100 last:border-b-0"
+        className="p-3 sm:p-4 hover:bg-neutral-50 transition-colors border-b border-neutral-100 last:border-b-0"
       >
         <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3 flex-1">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             <div className={`p-2 rounded-lg ${
               category === 'breakfast' ? 'bg-orange-100' :
               category === 'lunch' ? 'bg-blue-100' :
@@ -211,15 +211,16 @@ export default function MealHistory({ onBack }) {
               }`} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-neutral-900 truncate">{meal.food_description}</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-neutral-900">
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                <p className="break-words font-medium text-neutral-900">{meal.food_description}</p>
+                <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                  <span className="text-sm font-semibold text-neutral-900 whitespace-nowrap">
                     {Math.round(meal.calories)} cal
                   </span>
                   <button
                     onClick={() => deleteMeal(meal.id)}
-                    className="p-1 text-neutral-400 hover:text-red-600 transition-colors"
+                    aria-label={`Delete ${meal.food_description}`}
+                    className="rounded-md p-2 text-neutral-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -230,7 +231,7 @@ export default function MealHistory({ onBack }) {
                   {format(new Date(meal.created_at), 'MMM d, yyyy h:mm a')}
                 </p>
               )}
-              <div className="flex gap-4 text-xs text-neutral-600">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
                 <span>P: {Math.round(meal.protein)}g</span>
                 <span>C: {Math.round(meal.carbs)}g</span>
                 <span>F: {Math.round(meal.fat)}g</span>
@@ -260,23 +261,23 @@ export default function MealHistory({ onBack }) {
       >
         <button
           onClick={() => toggleDayExpansion(date)}
-          className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors"
+          className="w-full p-3 sm:p-4 flex flex-col gap-3 text-left hover:bg-neutral-50 transition-colors sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-neutral-500" />
+          <div className="flex min-w-0 items-start gap-3">
+            <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-neutral-500" />
             <div className="text-left">
               <h3 className="font-semibold text-neutral-900">{dayLabel}</h3>
-              <p className="text-sm text-neutral-600">
-                {meals.length} meal{meals.length !== 1 ? 's' : ''} • {Math.round(dayStats.calories)} calories
+              <p className="text-sm text-neutral-600 sm:hidden">
+                {meals.length} meal{meals.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:gap-4">
+            <div className="min-w-0 sm:text-right">
               <div className="text-sm font-medium text-neutral-900">
-                {Math.round(dayStats.calories)} cal
+                {Math.round(dayStats.calories)} calories
               </div>
-              <div className="text-xs text-neutral-600">
+              <div className="break-words text-xs text-neutral-600">
                 P: {Math.round(dayStats.protein)}g • C: {Math.round(dayStats.carbs)}g • F: {Math.round(dayStats.fat)}g
               </div>
             </div>
@@ -309,7 +310,7 @@ export default function MealHistory({ onBack }) {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="mx-auto w-full max-w-4xl p-4 sm:p-6">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-neutral-200 rounded w-1/4"></div>
           <div className="space-y-4">
@@ -323,9 +324,9 @@ export default function MealHistory({ onBack }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4 p-4 sm:space-y-6 sm:p-6">
       {/* Back Button */}
-      <div className="mb-2 flex items-center">
+      <div className="mb-1 flex items-center">
         <button
           type="button"
           onClick={() => (onBack ? onBack() : window.history.back())}
@@ -338,15 +339,15 @@ export default function MealHistory({ onBack }) {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-neutral-900">Meal History</h2>
-          <p className="text-neutral-600 mt-1">Track your eating patterns over time</p>
+          <p className="mt-1 text-sm text-neutral-600 sm:text-base">Track your eating patterns over time</p>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="card p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="card p-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-4">
           {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -363,7 +364,7 @@ export default function MealHistory({ onBack }) {
           <select
             value={selectedFilter}
             onChange={(e) => setSelectedFilter(e.target.value)}
-            className="input-field max-w-xs"
+            className="input-field w-full sm:min-w-36 sm:max-w-48"
           >
             {filters.map(filter => (
               <option key={filter.value} value={filter.value}>
@@ -376,7 +377,7 @@ export default function MealHistory({ onBack }) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="input-field max-w-xs"
+            className="input-field w-full sm:min-w-36 sm:max-w-48"
           >
             <option value="date">Sort by Date</option>
             <option value="calories-high">Most Calories</option>
@@ -406,4 +407,4 @@ export default function MealHistory({ onBack }) {
       </div>
     </div>
   );
-} 
+}

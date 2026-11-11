@@ -31,6 +31,10 @@ export default function Dashboard({ onTabChange }) {
   const [mealDistribution, setMealDistribution] = useState([]);
   const [userGoals, setUserGoals] = useState({ calories: 2000, protein: 150, carbs: 250, fat: 65 });
   const [aiInsights, setAiInsights] = useState([]);
+  const [insightsGeneratedAt, setInsightsGeneratedAt] = useState(null);
+  const [insightsStale, setInsightsStale] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showGoalSettings, setShowGoalSettings] = useState(false);
 
@@ -42,7 +46,7 @@ export default function Dashboard({ onTabChange }) {
     fetchMacroData();
     fetchMealDistribution();
     fetchUserGoals();
-    generateAIInsights();
+    loadCachedInsights();
   };
 
   useEffect(() => {
@@ -195,299 +199,67 @@ export default function Dashboard({ onTabChange }) {
     }
   }
 
-  async function generateAIInsights() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Fetch last 7 days of data for analysis
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7);
-
-    const { data, error } = await supabase
-      .from('meals')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('created_at', startDate.toISOString())
-      .order('created_at');
-
-    if (error || !data.length) return;
-
-    // Analyze patterns and generate insights
-    const insights = [];
-
-    // Calculate averages
-    const totalCalories = data.reduce((sum, meal) => sum + meal.calories, 0);
-    const avgCalories = totalCalories / 7;
-
-    // Check if user is consistently over/under their goal
-    if (avgCalories > userGoals.calories * 1.1) {
-      insights.push({
-        type: 'warning',
-        title: 'High Calorie Intake',
-        message: `You're averaging ${Math.round(avgCalories)} calories per day, which is above your goal of ${userGoals.calories}.`,
-        suggestion: 'Consider reducing portion sizes or adding more vegetables to your meals.'
-      });
-    } else if (avgCalories < userGoals.calories * 0.9) {
-      insights.push({
-        type: 'info',
-        title: 'Low Calorie Intake',
-        message: `You're averaging ${Math.round(avgCalories)} calories per day, which is below your goal of ${userGoals.calories}.`,
-        suggestion: 'Try adding healthy snacks like nuts or Greek yogurt to reach your daily target.'
-      });
-    }
-
-    // Check meal timing patterns
-    const mealTimes = data.map(meal => new Date(meal.created_at).getHours());
-    const lateMeals = mealTimes.filter(hour => hour >= 21).length;
-
-    if (lateMeals > data.length * 0.3) {
-      insights.push({
-        type: 'warning',
-        title: 'Late Night Eating',
-        message: `${Math.round((lateMeals / data.length) * 100)}% of your meals are eaten after 9 PM.`,
-        suggestion: 'Try to finish eating 2-3 hours before bedtime for better digestion and sleep.'
-      });
-    }
-
-    // Check macro balance
-    const totalProtein = data.reduce((sum, meal) => sum + meal.protein, 0);
-    const totalCarbs = data.reduce((sum, meal) => sum + meal.carbs, 0);
-    const totalFat = data.reduce((sum, meal) => sum + meal.fat, 0);
-
-    const proteinRatio = totalProtein / (totalProtein + totalCarbs + totalFat);
-    if (proteinRatio < 0.15) {
-      insights.push({
-        type: 'info',
-        title: 'Low Protein Intake',
-        message: 'Your protein intake is below recommended levels.',
-        suggestion: 'Add lean proteins like chicken, fish, or legumes to your meals.'
-      });
-    }
-
-    // Advanced meal analysis for calorie reduction opportunities
-    const mealAnalysis = analyzeMealsForCalorieCuts(data);
-    insights.push(...mealAnalysis);
-
-    setAiInsights(insights);
+  async function getInsightsToken() {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token;
   }
 
-  const analyzeMealsForCalorieCuts = (meals) => {
-    const insights = [];
-    const mealCategories = {
-      drinks: [],
-      breakfast: [],
-      lunch: [],
-      dinner: [],
-      snacks: []
+  function getInsightsHeaders(token) {
+    return {
+      Authorization: `Bearer ${token}`,
+      'X-Time-Zone': Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
+  }
 
-    // Categorize meals by time and type
-    meals.forEach(meal => {
-      if (!meal.food_description) return;
+  async function loadCachedInsights() {
+    const token = await getInsightsToken();
+    if (!token) return;
 
-      const hour = new Date(meal.created_at).getHours();
-      const description = meal.food_description.toLowerCase();
-
-      if (hour < 11) mealCategories.breakfast.push(meal);
-      else if (hour < 16) mealCategories.lunch.push(meal);
-      else if (hour < 21) mealCategories.dinner.push(meal);
-      else mealCategories.snacks.push(meal);
-
-      // Identify drinks
-      if (description.includes('coffee') || description.includes('tea') ||
-        description.includes('juice') || description.includes('soda') ||
-        description.includes('milk') || description.includes('smoothie')) {
-        mealCategories.drinks.push(meal);
-      }
-    });
-
-    // Analyze drinks for easy calorie cuts
-    if (mealCategories.drinks.length > 0) {
-      const drinkInsights = analyzeDrinks(mealCategories.drinks);
-      insights.push(...drinkInsights);
-    }
-
-    // Analyze breakfast patterns
-    if (mealCategories.breakfast.length > 0) {
-      const breakfastInsights = analyzeBreakfast(mealCategories.breakfast);
-      insights.push(...breakfastInsights);
-    }
-
-    // Analyze lunch/dinner patterns
-    const mainMeals = [...mealCategories.lunch, ...mealCategories.dinner];
-    if (mainMeals.length > 0) {
-      const mealInsights = analyzeMainMeals(mainMeals);
-      insights.push(...mealInsights);
-    }
-
-    // Analyze snacks
-    if (mealCategories.snacks.length > 0) {
-      const snackInsights = analyzeSnacks(mealCategories.snacks);
-      insights.push(...snackInsights);
-    }
-
-    return insights;
-  };
-
-  const analyzeDrinks = (drinks) => {
-    const insights = [];
-    const totalDrinkCalories = drinks.reduce((sum, drink) => sum + drink.calories, 0);
-    const avgDrinkCalories = totalDrinkCalories / drinks.length;
-
-    if (avgDrinkCalories > 100) {
-      const highCalorieDrinks = drinks.filter(drink => drink.calories > 100);
-      const descriptions = highCalorieDrinks.map(drink => drink.food_description).join(', ');
-
-      insights.push({
-        type: 'info',
-        title: 'High-Calorie Drinks Detected',
-        message: `Your drinks average ${Math.round(avgDrinkCalories)} calories each.`,
-        suggestion: `Try switching to water, black coffee, or unsweetened tea. This could save you ${Math.round(avgDrinkCalories - 20)} calories per drink!`
+    try {
+      const response = await fetch('/api/insights', {
+        headers: getInsightsHeaders(token),
       });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not load saved insights.');
+      setAiInsights(result.insights || []);
+      setInsightsGeneratedAt(result.generatedAt || null);
+      setInsightsStale(Boolean(result.stale));
+      setInsightsError('');
+    } catch (error) {
+      console.error('Could not load cached insights:', error);
+      setInsightsError(error.message);
+    }
+  }
+
+  async function refreshInsights() {
+    const token = await getInsightsToken();
+    if (!token) {
+      setInsightsError('Sign in again to refresh your insights.');
+      return;
     }
 
-    // Check for specific drink types
-    drinks.forEach(drink => {
-      const desc = drink.food_description.toLowerCase();
-      if (desc.includes('soda') || desc.includes('pop') || desc.includes('cola')) {
-        insights.push({
-          type: 'info',
-          title: 'Soda Alert',
-          message: `Soda contains ${drink.calories} calories per serving.`,
-          suggestion: 'Switch to sparkling water with lemon or try diet soda. This could save you 150+ calories per drink!'
-        });
-      }
-      if (desc.includes('juice')) {
-        insights.push({
-          type: 'info',
-          title: 'Juice Calories',
-          message: `Fruit juice contains ${drink.calories} calories.`,
-          suggestion: 'Eat whole fruit instead - you will get fiber and fewer calories. Save 50-100 calories per serving!'
-        });
-      }
-    });
-
-    return insights;
-  };
-
-  const analyzeBreakfast = (breakfasts) => {
-    const insights = [];
-    const avgCalories = breakfasts.reduce((sum, meal) => sum + meal.calories, 0) / breakfasts.length;
-
-    if (avgCalories > 400) {
-      insights.push({
-        type: 'info',
-        title: 'High-Calorie Breakfast',
-        message: `Your breakfasts average ${Math.round(avgCalories)} calories.`,
-        suggestion: 'Try Greek yogurt with berries (150 cal) instead of sugary cereals. Save 200+ calories!'
+    setInsightsLoading(true);
+    setInsightsError('');
+    try {
+      const response = await fetch('/api/insights', {
+        method: 'POST',
+        headers: {
+          ...getInsightsHeaders(token),
+          'Content-Type': 'application/json',
+        },
       });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not refresh insights.');
+      setAiInsights(result.insights || []);
+      setInsightsGeneratedAt(result.generatedAt || null);
+      setInsightsStale(false);
+    } catch (error) {
+      console.error('Could not refresh insights:', error);
+      setInsightsError(error.message);
+    } finally {
+      setInsightsLoading(false);
     }
-
-    // Check for specific breakfast items
-    breakfasts.forEach(meal => {
-      const desc = meal.food_description.toLowerCase();
-      if (desc.includes('cereal') && meal.calories > 200) {
-        insights.push({
-          type: 'info',
-          title: 'Sugary Cereal',
-          message: `Your cereal has ${meal.calories} calories.`,
-          suggestion: 'Switch to plain oatmeal with fruit. Save 100-150 calories and get more fiber!'
-        });
-      }
-      if (desc.includes('bagel') || desc.includes('muffin')) {
-        insights.push({
-          type: 'info',
-          title: 'Bread-Based Breakfast',
-          message: `${meal.food_description} has ${meal.calories} calories.`,
-          suggestion: 'Try 2 eggs with spinach instead. More protein, fewer calories!'
-        });
-      }
-    });
-
-    return insights;
-  };
-
-  const analyzeMainMeals = (meals) => {
-    const insights = [];
-    const avgCalories = meals.reduce((sum, meal) => sum + meal.calories, 0) / meals.length;
-
-    if (avgCalories > 600) {
-      insights.push({
-        type: 'info',
-        title: 'Large Portion Sizes',
-        message: `Your main meals average ${Math.round(avgCalories)} calories.`,
-        suggestion: 'Try using a smaller plate and fill half with vegetables. This could save 200-300 calories per meal!'
-      });
-    }
-
-    // Check for high-calorie cooking methods
-    meals.forEach(meal => {
-      const desc = meal.food_description.toLowerCase();
-      if (desc.includes('fried') || desc.includes('breaded')) {
-        insights.push({
-          type: 'info',
-          title: 'Fried Food Detected',
-          message: `${meal.food_description} likely has extra calories from frying.`,
-          suggestion: 'Try baking, grilling, or air-frying instead. Save 100-200 calories!'
-        });
-      }
-      if (desc.includes('pasta') && meal.calories > 400) {
-        insights.push({
-          type: 'info',
-          title: 'High-Calorie Pasta',
-          message: `Your pasta dish has ${meal.calories} calories.`,
-          suggestion: 'Try zucchini noodles or reduce pasta portion by half. Save 200+ calories!'
-        });
-      }
-      if (desc.includes('cheese') && meal.calories > 500) {
-        insights.push({
-          type: 'info',
-          title: 'Cheesy Dish',
-          message: `${meal.food_description} has ${meal.calories} calories.`,
-          suggestion: 'Use half the cheese or try nutritional yeast. Save 100-150 calories!'
-        });
-      }
-    });
-
-    return insights;
-  };
-
-  const analyzeSnacks = (snacks) => {
-    const insights = [];
-    const avgCalories = snacks.reduce((sum, snack) => sum + snack.calories, 0) / snacks.length;
-
-    if (avgCalories > 200) {
-      insights.push({
-        type: 'info',
-        title: 'High-Calorie Snacks',
-        message: `Your snacks average ${Math.round(avgCalories)} calories.`,
-        suggestion: 'Try apple with 1 tbsp peanut butter (150 cal) or Greek yogurt (100 cal). Save 50-100 calories per snack!'
-      });
-    }
-
-    // Check for specific snack types
-    snacks.forEach(snack => {
-      const desc = snack.food_description.toLowerCase();
-      if (desc.includes('chips') || desc.includes('crackers')) {
-        insights.push({
-          type: 'info',
-          title: 'Processed Snacks',
-          message: `${snack.food_description} has ${snack.calories} calories.`,
-          suggestion: 'Try air-popped popcorn or raw veggies with hummus. Save 100+ calories!'
-        });
-      }
-      if (desc.includes('candy') || desc.includes('chocolate')) {
-        insights.push({
-          type: 'info',
-          title: 'Sugary Snack',
-          message: `${snack.food_description} has ${snack.calories} calories.`,
-          suggestion: 'Try a piece of fruit or dark chocolate (1 square). Save 100-200 calories!'
-        });
-      }
-    });
-
-    return insights;
-  };
+  }
 
   const calorieProgress = (todayStats.calories / userGoals.calories) * 100;
   const remainingCalories = Math.max(0, userGoals.calories - todayStats.calories);
@@ -727,10 +499,25 @@ export default function Dashboard({ onTabChange }) {
         <div className="space-y-8">
           {/* AI Insights */}
           <div className="card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Lightbulb className="w-5 h-5 text-secondary-600" />
-              <h3 className="text-lg font-semibold text-neutral-900">AI Insights</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-secondary-600" />
+                <h3 className="text-lg font-semibold text-neutral-900">AI Insights</h3>
+              </div>
+              <button
+                type="button"
+                onClick={refreshInsights}
+                disabled={insightsLoading}
+                className="btn-secondary px-3 py-2 text-sm disabled:opacity-60"
+              >
+                {insightsLoading ? 'Thinking…' : 'Refresh insights'}
+              </button>
             </div>
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+              {insightsGeneratedAt && <span>Updated {format(new Date(insightsGeneratedAt), 'MMM d, h:mm a')}</span>}
+              {insightsStale && <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-800">New data since last refresh</span>}
+            </div>
+            {insightsError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{insightsError}</p>}
             <div className="space-y-4">
               {aiInsights.length > 0 ? (
                 aiInsights.map((insight, index) => (
@@ -746,13 +533,17 @@ export default function Dashboard({ onTabChange }) {
                   >
                     <h4 className="font-medium text-neutral-900 mb-1">{insight.title}</h4>
                     <p className="text-sm text-neutral-600 mb-2">{insight.message}</p>
-                    <p className="text-sm font-medium text-neutral-700">{insight.suggestion}</p>
+                    <p className="text-sm font-medium text-neutral-700"><span className="font-semibold">Try:</span> {insight.suggestion}</p>
                   </motion.div>
                 ))
               ) : (
                 <div className="text-center py-8">
                   <Lightbulb className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
-                  <p className="text-sm text-neutral-500">Start logging meals to get personalized insights</p>
+                  <p className="text-sm text-neutral-500">
+                    {insightsGeneratedAt
+                      ? 'No clear pattern stood out in this week’s logged meals yet.'
+                      : 'Refresh to get a few practical ideas based on your recent meals and goals.'}
+                  </p>
                 </div>
               )}
             </div>
